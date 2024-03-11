@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script type="importmap">
+        {
+          "imports": {
+            "vue": "https://unpkg.com/vue@3/dist/vue.esm-browser.js"
+          }
+        }
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body>
+
+    <div id="app" class="py-2 px-2">
+        <form class="pl-4 space-y-2">
+            <div class="space-x-4">
+                <label for="csv">.csv dosya(ları) yükle:</label>
+                <input type="file" multiple name="csv" accept=".csv" @change="uploadCsv" />
+            </div>
+            <table class="table-auto table border-slate-700 border-2 border-solid">
+                <thead>
+                    <tr class="*:px-4 divide-x border-2 border-slate-700">
+                        <th>Dosya Adı</th>
+                        <th>Ortalama SSD</th>
+                        <th>Ortalama SSRT</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="*:px-4  *:text-center divide-x" v-for="item in data" :key="item.fileName">
+                        <td>{{ item.fileName }}</td>
+                        <td>{{ item.ssd.toFixed(3) }}</td>
+                        <td>{{ item.ssrt.toFixed(3) }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </form>
+    </div>
+
+    <script type="module">
+        import { createApp } from 'vue'
+
+        createApp({
+            data() {
+                return {
+                    message: 'Hello Vue!',
+                    csv: null,
+                    data: []
+                }
+            },
+            methods: {
+                average(arr) {
+                    return arr.reduce((p, c) => p + c, 0) / arr.length;
+                },
+                readFile(file) {
+                    return new Promise((resolve, reject) => {
+                        var fr = new FileReader();
+                        fr.onload = () => {
+                            resolve(fr.result)
+                        };
+                        fr.onerror = reject;
+                        fr.readAsText(file);
+                    });
+                },
+                async readCsv(file) {
+                    const csvString = await this.readFile(file);
+                    const rows = csvString.split('\n').map(line => line.split(','))
+
+                    let ssdList = [];
+                    let ssrtList = []
+
+                    const headers = rows.shift()
+                    headers.forEach((colName, i) => {
+                        rows.forEach((row) => {
+                            const val = row[i]
+                            if (colName.endsWith('ssd')) {
+                                if (!!val) {
+                                    ssdList.push(Number(val))
+                                }
+                            }
+                            else if (colName.endsWith('type')) {
+                                if (val === 'Go') {
+                                    const rtString = row[i + 1]
+                                    const rt = Number(rtString.substring(1, rtString.length - 1))
+                                    ssrtList.push(rt)
+                                }
+                            }
+                        })
+
+                    })
+
+                    return { fileName: file.name, ssd: this.average(ssdList), ssrt: this.average(ssrtList) - this.average(ssdList) }
+                },
+                async uploadCsv(data, data1) {
+                    const { files } = event.target
+                    console.log(files)
+                    Array.from(files).forEach(async (file) => {
+                        this.data.push(await this.readCsv(file))
+                    })
+                }
+            }
+        }).mount('#app')
+    </script>
+</body>
+
+</html>
